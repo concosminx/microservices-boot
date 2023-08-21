@@ -1,11 +1,15 @@
 package com.nimsoc.ms.orderservice.service;
 
+import brave.Span;
+import brave.Tracer;
 import com.nimsoc.ms.orderservice.dto.InventoryResponse;
 import com.nimsoc.ms.orderservice.dto.OrderLineItemsDto;
 import com.nimsoc.ms.orderservice.dto.OrderRequest;
 import com.nimsoc.ms.orderservice.model.Order;
 import com.nimsoc.ms.orderservice.model.OrderLineItems;
 import com.nimsoc.ms.orderservice.repository.OrderRepository;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,9 +25,10 @@ import java.util.UUID;
 public class OrderService {
 
   private final OrderRepository orderRepository;
-  private final WebClient webClient;
+  private final WebClient.Builder webClientBuilder;
+  private final ObservationRegistry observationRegistry;
 
-  public void placeOrder(OrderRequest orderRequest) {
+  public String placeOrder(OrderRequest orderRequest) {
     Order order = new Order();
     order.setOrderNumber(UUID.randomUUID().toString());
 
@@ -41,23 +46,27 @@ public class OrderService {
 
     // Call Inventory Service, and place order if product is in
     // stock
-    InventoryResponse[] inventoryResponsArray = webClient.get()
-        .uri("http://localhost:8082/api/inventory",
-            uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build())
-        .retrieve()
-        .bodyToMono(InventoryResponse[].class)
-        .block();
+    Observation inventoryServiceObservation = Observation.createNotStarted("inventory-service-lookup",
+        this.observationRegistry);
+    inventoryServiceObservation.lowCardinalityKeyValue("call", "inventory-service");
+    return inventoryServiceObservation.observe(() -> {
+      InventoryResponse[] inventoryResponseArray = webClientBuilder.build().get()
+          .uri("http://inventory-service/api/inventory",
+              uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build())
+          .retrieve()
+          .bodyToMono(InventoryResponse[].class)
+          .block();
 
-    boolean allProductsInStock = Arrays.stream(inventoryResponsArray)
-        .allMatch(InventoryResponse::isInStock);
+      boolean allProductsInStock = Arrays.stream(inventoryResponseArray)
+          .allMatch(InventoryResponse::isInStock);
 
-
-
-    if(allProductsInStock){
-      orderRepository.save(order);
-    } else {
-      throw new IllegalArgumentException("Product is not in stock, please try again later");
-    }
+      if (allProductsInStock) {
+        orderRepository.save(order);
+        return "Order Placed";
+      } else {
+        throw new IllegalArgumentException("Product is not in stock, please try again later");
+      }
+    });
   }
 
   private OrderLineItems mapToDto(OrderLineItemsDto orderLineItemsDto) {

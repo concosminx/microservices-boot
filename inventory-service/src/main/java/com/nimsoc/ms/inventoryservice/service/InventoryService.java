@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +22,11 @@ public class InventoryService {
   @SneakyThrows
   public List<InventoryResponse> isInStock(List<String> skuCode) {
     log.info("Checking Inventory");
+
+    //log.info("Wait started");
+    //TimeUnit.SECONDS.sleep(15);
+    //log.info("Wait ended");
+
     return inventoryRepository.findBySkuCodeIn(skuCode).stream()
         .map(inventory ->
             InventoryResponse.builder()
