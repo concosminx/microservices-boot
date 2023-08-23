@@ -1,17 +1,17 @@
 ---
 version: '3.7'
 services:
-  ## MySQL Docker Compose Config
+  ## PostgreSQL Docker Compose Config
   postgres-order:
     container_name: postgres-order
     image: postgres
     environment:
       POSTGRES_DB: order-service
-      POSTGRES_USER: ptechie
+      POSTGRES_USER: msuser
       POSTGRES_PASSWORD: password
       PGDATA: /data/postgres
     volumes:
-      - ./postgres-order:/data/postgres
+      - ./data-postgres-order:/data/postgres
     expose:
       - "5431"
     ports:
@@ -24,11 +24,11 @@ services:
     image: postgres
     environment:
       POSTGRES_DB: inventory-service
-      POSTGRES_USER: ptechie
+      POSTGRES_USER: msuser
       POSTGRES_PASSWORD: password
       PGDATA: /data/postgres
     volumes:
-      - ./postgres-inventory:/data/postgres
+      - ./data-postgres-inventory:/data/postgres
     ports:
       - "5432:5432"
     restart: always
@@ -43,14 +43,14 @@ services:
     expose:
       - "27017"
     volumes:
-      - ./mongo-data:/data/db
+      - ./data-mongo:/data/db
 
   ## Keycloak Config with Mysql database
   keycloak-mysql:
     container_name: keycloak-mysql
     image: mysql:5.7
     volumes:
-      - ./mysql_keycloak_data:/var/lib/mysql
+      - ./data-mysql-keycloak:/var/lib/mysql
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: keycloak
@@ -76,6 +76,7 @@ services:
     depends_on:
       - keycloak-mysql
 
+  ## Kafka and Zookeeper
   zookeeper:
     image: confluentinc/cp-zookeeper:7.0.1
     container_name: zookeeper
@@ -207,7 +208,7 @@ services:
     links:
       - prometheus:prometheus
     volumes:
-      - ./grafana:/var/lib/grafana
+      - ./data-grafana:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=password

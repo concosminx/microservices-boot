@@ -35,10 +35,3 @@ out/
 
 ### VS Code ###
 .vscode/
-
-### Project data ###
-data-grafana
-data-mongo
-data-mysql-keycloak
-data-postgres-inventory
-data-postgres-order

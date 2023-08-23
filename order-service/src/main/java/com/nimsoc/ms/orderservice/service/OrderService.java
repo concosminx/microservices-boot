@@ -1,16 +1,16 @@
 package com.nimsoc.ms.orderservice.service;
 
-import brave.Span;
-import brave.Tracer;
 import com.nimsoc.ms.orderservice.dto.InventoryResponse;
 import com.nimsoc.ms.orderservice.dto.OrderLineItemsDto;
 import com.nimsoc.ms.orderservice.dto.OrderRequest;
+import com.nimsoc.ms.orderservice.event.OrderPlacedEvent;
 import com.nimsoc.ms.orderservice.model.Order;
 import com.nimsoc.ms.orderservice.model.OrderLineItems;
 import com.nimsoc.ms.orderservice.repository.OrderRepository;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -27,6 +27,7 @@ public class OrderService {
   private final OrderRepository orderRepository;
   private final WebClient.Builder webClientBuilder;
   private final ObservationRegistry observationRegistry;
+  private final ApplicationEventPublisher applicationEventPublisher;
 
   public String placeOrder(OrderRequest orderRequest) {
     Order order = new Order();
@@ -62,6 +63,8 @@ public class OrderService {
 
       if (allProductsInStock) {
         orderRepository.save(order);
+        // publish Order Placed Event
+        applicationEventPublisher.publishEvent(new OrderPlacedEvent(this, order.getOrderNumber()));
         return "Order Placed";
       } else {
         throw new IllegalArgumentException("Product is not in stock, please try again later");
